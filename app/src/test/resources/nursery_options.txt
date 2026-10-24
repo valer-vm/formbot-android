@@ -1,0 +1,87 @@
+Ginkgo biloba Baldi   С2   20/25
+Ginkgo biloba Everton Broom stam 15   C5   30/40
+Ginkgo biloba Louis   C2   15/20
+Larix kaempferi Diana   C7,5   80/100
+Larix kaempferi Summer Fog   C5   70/90
+Larix laricina Arethusa Bog  stam 50   C7,5   30/40
+Picea abies Aurea Magnifica   C5   30/45
+Picea abies Boyko's Golden   C5   40/50
+Picea abies Brobeck's Gold   C5   30/40
+Picea abies Chub   C5   25/35
+Picea abies Cruenta   C2   30/40
+Picea abies Gold Drift (flat growing)   C5   30/40
+Picea abies Filip’s Mystic Black   C5   25/35
+Picea abies Filip's Tivé   C5   25/30
+Picea abies Frohburg   C5   35/40
+Picea abies Frohburg   C10   55/65
+Picea abies Karlsbo   C2   20/25
+Picea abies Kumoisten Kulta   C5   20/30
+Picea abies Punahilkka   C2   15/20
+Picea abies Virgata Vancgold   С5   65/85
+Picea engelmannii Bush's Lace   C7,5   60/80
+Picea engelmannii Talbot Lake   C2   6/8
+Picea engelmannii Thomschke   C2   20/25
+Picea fennica (x) Filip's Magic Treasure   C2   20/25
+Picea fennica (x) Filip's Tiny Gem   C2   15/20
+Picea omorika Golden Rain   C5   30/40
+Picea omorika Silberblau   C7,5   40/50
+Picea omorika Silberblau   C7,5   65/75
+Picea omorika T.C. Weeping   C5   60/80
+Picea pungens Blaukissen   C2   15/20
+Picea pungens Byczkowski   C5   25/35
+Picea pungens Early Gold   C5   30/40
+Picea pungens Filip's Blue Compact   C5   30/40
+Picea pungens Gebelle's Golden Spring   C5   25/30
+Picea pungens Teton Last Find   C5   30/40
+Pinus armandii Filip's Midnight Blue   C5   15/25
+Pinus armandii Filip's Midnight Blue   C5   30/40
+Pinus banksiana Banska Stiavnica   C2   20/25
+Pinus banksiana Schoodic   C5   25/30
+Pinus bungeana Silver Ghost   C2   20/25
+Pinus bungeana White Bark   С2   20/25
+Pinus cembra Aurea   C2   15/25
+Pinus cembra Compacta   C2   20/25
+Pinus cembra Ortler   C2   12/15
+Pinus cembra Pillar   C2   20/25
+Pinus densiflora Rainbow   C7,5   60/75
+Pinus densiflora Pendula   C7,5   90/100
+Pinus flexilis Cesarini Blue   C5   25/30
+Pinus monticola Crawford   C2   15/20
+Pinus mugo Albospicata Domschke  new   C2   20/25
+Pinus mugo Filip’s Golden Tower  new   C2   15/20
+Pinus mugo Filip's Lost Goldmine   C2   15/20
+Pinus mugo Frohlingsgold   C2   20/30
+Pinus mugo Goldcoin Weiss   C2   15/20
+Pinus mugo Schweizer Tourist   C2   25/30
+Pinus mugo Sunshine   C3   20/25
+Pinus patula (species)   C15   120/140
+Pinus peuce Pacific Blue   C2   20/25
+Pinus ponderosa Agnieszka   C5   15/20
+Pinus ponderosa Agnieszka   C5   25/35
+Pinus ponderosa Heike   С5   20/25
+Pinus pumila Kalsnava Beauty   C5   25/35
+Pinus sibirica (species)   C2   15/20
+Pinus strobiformis Spring Snow new   C5   20/30
+Pinus strobus Alba   C5   25/30
+Pinus strobus Goldie   C5   45/55
+Pinus strobus Niagara Falls   C7,5   50/60
+Pinus strobus Squiggles   C7,5   35/45
+Pinus strobus Stowe Pillar   C2   20/25
+Pinus sylvestris Candlelight   C5   35/45
+Pinus sylvestris Compressa   C2   25/30
+Pinus sylvestris Frosty   C2   25/30
+Pinus sylvestris Hillside Creeper   C7,5   40/50
+Pinus sylvestris Ødegård   C2   20/25
+Pinus sylvestris Filip's Yellow Fellow   C2   25/30
+Pinus sylvestris Wolting's Gold   C5   20/30
+Pinus schwerinii (x) (species)   C5   20/30
+Pinus uncinata Tukan   C2   20/25
+Pseudotsuga menziesii subsp. glauca Blue Wonder   C5   25/30
+Sciadopitys verticillata Kugelblitz   C5   25/30
+Thuja occidentalis Perk Vlaanderen new   C5   40/50
+Thuja plicata Golden Whipcord new stam 70   C7,5   20/25
+Taxodium distichum Gee Wizz stam 30   C5   30/40
+Taxus baccata Evgeniya   C5   40/50
+Tsuga canadensis Beran   C2   20/25
+Tsuga canadensis Cole's Prostrate (staked)   C5   50/70
+Tsuga heterophylla Iron Springs new   C5   25/35
