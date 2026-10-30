@@ -187,40 +187,33 @@ private fun TodayCard(vm: AppViewModel, s: Settings, w: WatchState, running: Boo
         Spacer(Modifier.height(10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (item in offer.items) {
-                val order = w.selected.indexOf(item.raw)
-                val picked = order >= 0
-                val full = !picked && w.selected.size >= PlantRuntime.MAX_SELECTED
-                val bg by animateColorAsState(
-                    if (picked) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = if (LocalDarkTheme.current) 0.05f else 0.35f),
-                    label = "pick",
-                )
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(bg)
-                        .clickable(enabled = !full) { vm.toggleOffer(item.raw) }
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        Modifier.size(28.dp).clip(CircleShape)
-                            .background(if (picked) MaterialTheme.colorScheme.primary else Color.Transparent)
-                            .border(1.5.dp, if (picked) Color.Transparent else MaterialTheme.colorScheme.outline, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (picked) Text("${order + 1}", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
+                val vs = if (item.container == null) w.variants[item.name] else null
+                val loading = item.container == null && vs == null && w.variantsLoading
+                when {
+                    // Несколько размеров в форме — отмечается конкретный размер.
+                    vs != null && vs.size >= 2 -> {
                         Text(
                             item.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
-                            color = if (full) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 4.dp, top = 4.dp),
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.padding(top = 4.dp)) {
-                            item.container?.let { Chip(it) }
-                            item.size?.let { Chip(it) }
-                            for (n in item.notes) Chip(n, accent = PlantPost.isOneEach(n))
+                        if (item.raw in w.selected) PickRow(w, item.raw, "Отмечено без размера — бот спросит", emptyList(), vm::toggleOffer)
+                        for (v in vs) {
+                            val p = PlantPost.parseLine(v)
+                            val title = listOfNotNull(p?.container, p?.size).joinToString(" · ").ifEmpty { v }
+                            PickRow(w, v, title, p?.notes.orEmpty(), vm::toggleOffer)
                         }
                     }
+                    // Один размер — выбираем сразу его, строку формы целиком.
+                    vs != null && vs.size == 1 -> {
+                        val p = PlantPost.parseLine(vs[0])
+                        PickRow(w, vs[0], item.name, listOfNotNull(p?.container, p?.size) + item.notes, vm::toggleOffer)
+                    }
+                    else -> PickRow(
+                        w, item.raw, item.name,
+                        listOfNotNull(item.container, item.size) + item.notes +
+                            listOfNotNull(if (item.count > 1) "×${item.count}" else null, if (loading) "размеры загружаются…" else null),
+                        vm::toggleOffer,
+                    )
                 }
             }
         }
@@ -237,6 +230,47 @@ private fun TodayCard(vm: AppViewModel, s: Settings, w: WatchState, running: Boo
                 if (w.selected.isEmpty()) "Отметьте растения" else "Заполнить (${w.selected.size})",
                 fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
             )
+        }
+    }
+}
+
+/** Строка выбора: кружок с номером (порядок отправки), название и чипы. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PickRow(w: WatchState, key: String, title: String, chips: List<String>, onToggle: (String) -> Unit) {
+    val order = w.selected.indexOf(key)
+    val picked = order >= 0
+    val full = !picked && w.selected.size >= PlantRuntime.MAX_SELECTED
+    val bg by animateColorAsState(
+        if (picked) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else Color.White.copy(alpha = if (LocalDarkTheme.current) 0.05f else 0.35f),
+        label = "pick",
+    )
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(bg)
+            .clickable(enabled = !full) { onToggle(key) }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(28.dp).clip(CircleShape)
+                .background(if (picked) MaterialTheme.colorScheme.primary else Color.Transparent)
+                .border(1.5.dp, if (picked) Color.Transparent else MaterialTheme.colorScheme.outline, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (picked) Text("${order + 1}", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
+                color = if (full) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface,
+            )
+            if (chips.isNotEmpty()) FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                for (c in chips) Chip(c, accent = PlantPost.isOneEach(c))
+            }
         }
     }
 }

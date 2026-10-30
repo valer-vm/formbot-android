@@ -9,6 +9,13 @@ import com.formbot.app.core.AppSettings
 import com.formbot.app.core.GoogleForm
 import com.formbot.app.core.Offer
 import com.formbot.app.core.PlantPost
+import com.formbot.app.core.FormState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +36,10 @@ data class WatchState(
     val offer: Offer? = null,
     /** Выбранные строки позиций в порядке отметки — в этом порядке и отправляются. */
     val selected: List<String> = emptyList(),
+    /** Размеры из формы для растений, у которых в посте только название: название → варианты формы. */
+    val variants: Map<String, List<String>> = emptyMap(),
+    /** Форма ещё не обновилась — размеры подгружаются. */
+    val variantsLoading: Boolean = false,
 )
 
 /**
@@ -80,20 +91,29 @@ object PlantRuntime {
         val cfg = AppSettings.value.telegram
         if (!cfg.hasSource || Telegram.auth.value != TgAuth.Ready) return null
         val today = LocalDate.now(PlantPost.MSK)
-        if (offerDay != today) { offerDay = today; _state.update { it.copy(offer = null, selected = emptyList()) } }
+        if (offerDay != today) {
+            offerDay = today
+            _state.update { it.copy(offer = null, selected = emptyList(), variants = emptyMap(), variantsLoading = false) }
+        }
         val offer = PlantPost.todayOffer(Telegram.recentPosts(cfg), today) ?: return _state.value.offer
         val prev = _state.value.offer
-        if (prev == offer) return offer
+        if (prev == offer) {
+            // Размеры не все нашлись (форма долго не обновлялась) — при следующей проверке ищем снова.
+            val missing = offer.items.any { it.container == null && it.name !in _state.value.variants }
+            if (missing && variantsJob?.isActive != true) loadVariants(offer)
+            return offer
+        }
 
         val raws = offer.items.map { it.raw }
-        val lost = _state.value.selected.filter { it !in raws }
+        val known = _state.value.variants.values.flatten().toSet()
+        val lost = _state.value.selected.filter { it !in raws && it !in known }
         _state.update {
             it.copy(phase = WatchPhase.FOUND, status = "Сегодня в продаже: ${offer.items.size}", offer = offer, selected = it.selected - lost.toSet())
         }
         when {
             prev == null && notify -> Notify.show(
                 context, Notify.ID_PLANTS, Notify.CH_PLANTS, "🌱 Растения появились",
-                offer.items.joinToString("\n") { it.raw },
+                offer.items.joinToString("\n") { it.name + if (it.count > 1) " ×${it.count}" else "" },
             )
             prev != null && lost.isNotEmpty() -> Notify.show(
                 context, Notify.ID_CHANGED, Notify.CH_PLANTS, "Список изменился",
@@ -101,7 +121,43 @@ object PlantRuntime {
             )
         }
         offer.formUrl?.let { syncFormUrl(it) }
+        if (offer.items.any { it.container == null }) loadVariants(offer)
         offer
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var variantsJob: Job? = null
+
+    /**
+     * В посте только названия — размеры есть лишь в форме, а она обновляется примерно через минуту
+     * после поста. Перечитываем форму (только просмотр) раз в 3 с, пока у всех растений не найдутся
+     * варианты, но не дольше 10 минут.
+     */
+    private fun loadVariants(offer: Offer) {
+        variantsJob?.cancel()
+        val names = offer.items.filter { it.container == null }.map { it.name }.distinct()
+        variantsJob = scope.launch {
+            _state.update { it.copy(variantsLoading = true) }
+            val form = GoogleForm(http)
+            val deadline = System.currentTimeMillis() + 10 * 60_000L
+            try {
+                while (System.currentTimeMillis() < deadline) {
+                    val st = form.fetch(AppSettings.value.formUrl)
+                    if (st is FormState.Open) {
+                        val q = st.form.questions.filter { it.kind == com.formbot.app.core.QKind.DROPDOWN || it.kind == com.formbot.app.core.QKind.RADIO }
+                            .maxByOrNull { it.options.size }
+                        if (q != null) {
+                            val found = names.associateWith { PlantPost.variants(q.options, it) }.filterValues { it.isNotEmpty() }
+                            _state.update { it.copy(variants = it.variants + found) }
+                            if (found.size == names.size) break
+                        }
+                    }
+                    delay(3_000)
+                }
+            } finally {
+                _state.update { it.copy(variantsLoading = false) }
+            }
+        }
     }
 
     /** Ссылка из поста ведёт на другую форму — сохраняем её навсегда. Раскрытие forms.gle — только GET. */

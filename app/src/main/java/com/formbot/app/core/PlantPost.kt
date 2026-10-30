@@ -5,7 +5,10 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** Позиция из поста: «Picea abies Irva Snake C5 30/40 один в руки». */
+/**
+ * Позиция из поста: «Picea abies Irva Snake C5 30/40 один в руки» или только название
+ * «Pinus strobus Goldie 🌟» — тогда контейнер и размер берутся из вариантов формы.
+ */
 data class OfferItem(
     /** Строка без галочки — так её видит пользователь и так она уходит в сопоставление. */
     val raw: String,
@@ -13,6 +16,8 @@ data class OfferItem(
     val container: String?,
     val size: String?,
     val notes: List<String>,
+    /** Сколько раз строка повторилась в посте (обычно — несколько размеров в форме). */
+    val count: Int = 1,
 ) {
     val oneEach: Boolean get() = notes.any { PlantPost.isOneEach(it) }
 }
@@ -37,6 +42,8 @@ object PlantPost {
     private val FORM_URL = Regex("https?://(?:forms\\.gle/[\\w-]+|docs\\.google\\.com/forms/[^\\s)\\]>»\"]+)")
     private val PARENS = Regex("\\([^)]*\\)")
     private val SPACES = Regex("\\s+")
+    /** Украшения в посте: эмодзи, ‼, звёздочки — всё, что не буквы, цифры и знаки названий. */
+    private val DECOR = Regex("[^\\p{L}\\p{N}\\s/.,'’()\\-+&×]")
     /** Пометки внутри названия, которых нет в форме. */
     private val NOTE_WORDS = setOf("new", "новинка", "новинки")
 
@@ -59,6 +66,7 @@ object PlantPost {
     /** Позиции из текста поста; пустой список — пост не про растения. */
     fun parseItems(text: String): List<OfferItem> =
         text.lines().filter(::isPlantLine).mapNotNull { parseLine(CHECK.replace(it, "")) }
+            .groupBy { it.raw }.map { (_, same) -> same.first().copy(count = same.size) }
 
     /** Первая ссылка на Google-форму: из текста или из скрытых ссылок (entities). */
     fun formUrl(text: String, extraUrls: List<String> = emptyList()): String? =
@@ -66,22 +74,24 @@ object PlantPost {
 
     /** Строка позиции (или вариант из формы) → название, контейнер, размер, пометки. */
     fun parseLine(line: String): OfferItem? {
-        val raw = line.replace(SPACES, " ").trim()
-        if (raw.isEmpty()) return null
-        val c = CONTAINER.find(raw) ?: return OfferItem(raw, raw, null, null, emptyList())
-        val name = raw.substring(0, c.range.first).trim()
-        val rest = raw.substring(c.range.last + 1)
+        val raw = DECOR.replace(line, " ").replace(SPACES, " ").trim()
+        if (raw.isEmpty() || raw.none { it.isLetter() }) return null
+        val c = CONTAINER.find(raw)
+        val head = (if (c != null) raw.substring(0, c.range.first) else raw).trim()
+        val rest = if (c != null) raw.substring(c.range.last + 1) else ""
         val size = SIZE.find(rest)
         val tail = (if (size != null) rest.substring(size.range.last + 1) else rest).trim()
         val notes = buildList {
-            PARENS.findAll(name).forEach { add(it.value.trim('(', ')').trim()) }
-            name.split(' ').filter { it.lowercase() in NOTE_WORDS }.forEach { add(it) }
+            PARENS.findAll(head).forEach { add(it.value.trim('(', ')').trim()) }
+            head.split(' ').filter { it.lowercase() in NOTE_WORDS }.forEach { add(it) }
             if (tail.isNotEmpty()) add(tail)
         }.filter { it.isNotBlank() && it != "x" }
+        // Название без «new»: в посте это украшение, а в форме его может и не быть.
+        val name = head.split(' ').filter { it.lowercase() !in NOTE_WORDS }.joinToString(" ").trim()
         return OfferItem(
             raw = raw,
             name = name.ifEmpty { raw },
-            container = "C" + c.groupValues[1].replace('.', ','),
+            container = c?.let { "C" + it.groupValues[1].replace('.', ',') },
             size = size?.groupValues?.get(1)?.replace(" ", ""),
             notes = notes,
         )
@@ -106,9 +116,13 @@ object PlantPost {
      */
     fun matchOption(options: List<String>, item: OfferItem): OptionMatch {
         if (item.container == null) {
-            // Строку не удалось разобрать — только однозначное совпадение текста.
-            val i = TextRules.matchLabelIndex(options, item.raw)
-            return if (i >= 0) OptionMatch.Found(i) else OptionMatch.NotFound
+            // В посте только название — подходят все размеры этого растения в форме.
+            val hits = variantIndices(options, item.name)
+            return when (hits.size) {
+                0 -> OptionMatch.NotFound
+                1 -> OptionMatch.Found(hits[0])
+                else -> OptionMatch.Ambiguous(hits.map { options[it] })
+            }
         }
         val parsed = options.map { parseLine(it) }
         for (squeeze in listOf(false, true)) {
@@ -124,8 +138,24 @@ object PlantPost {
     fun matchManual(options: List<String>, wanted: String): OptionMatch {
         val item = parseLine(CHECK.replace(wanted, ""))
             ?: return OptionMatch.NotFound
-        if (item.container != null) return matchOption(options, item)
+        val m = matchOption(options, item)
+        if (m != OptionMatch.NotFound || item.container != null) return m
+        // Ручной ввод без контейнера — ещё и прежнее мягкое сравнение текста.
         val i = TextRules.matchLabelIndex(options, wanted)
         return if (i >= 0) OptionMatch.Found(i) else OptionMatch.NotFound
+    }
+
+    /** Все варианты формы с этим названием (разные контейнеры и размеры). */
+    fun variants(options: List<String>, name: String): List<String> = variantIndices(options, name).map { options[it] }
+
+    private fun variantIndices(options: List<String>, name: String): List<Int> {
+        val parsed = options.map { parseLine(it) }
+        for (squeeze in listOf(false, true)) {
+            val want = nameKey(name, squeeze)
+            if (want.isEmpty()) return emptyList()
+            val hits = parsed.indices.filter { parsed[it]?.let { p -> nameKey(p.name, squeeze) } == want }
+            if (hits.isNotEmpty()) return hits
+        }
+        return emptyList()
     }
 }

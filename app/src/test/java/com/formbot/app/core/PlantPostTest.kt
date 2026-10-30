@@ -167,3 +167,58 @@ class PrefillTest {
         assertTrue(url, url.contains("entry.${text.entryId}=%D0%9D%D0%B8%D0%BA%20"))
     }
 }
+
+/** Новый формат (с 29.10): в посте только названия с эмодзи, контейнер и размер — только в форме. */
+class NameOnlyPostTest {
+    private val post = """
+        Добрый  день, уважаемые участники!☀️
+
+        Актуальное предложение питомника на сегодня!📃
+
+        ✅Picea abies Hansu Antenna 💥💥💥new💥💥💥
+        ✅Picea abies Hansu Antenna 💥💥💥new💥💥💥
+        ✅Picea mariana Edelweiss Weeping 🔥🔥🔥
+        ✅Picea pungens Dietz Prostrate 🏃‍♀️🏃‍♀️🏃‍♀️🏀
+        ✅Pinus ponderosa Peňáz 🥇
+        ✅Pinus strobus Goldie 🌟
+
+        ‼️ Через минуту все будет доступно для заказа через форму.
+    """.trimIndent()
+
+    private val options = listOf(
+        "Picea abies Hansu Antenna  new   C2   20/25",
+        "Picea abies Hansu Antenna   С5   30/40",
+        "Picea mariana Edelweiss Weeping   C5   40/50",
+        "Picea pungens Dietz Prostrate   C5   20/30",
+        "Pinus ponderosa Penaz   C5   25/30",
+        "Pinus ponderosa Agnieszka   C5   15/20",
+        "Pinus strobus Goldie   C5   45/55",
+    )
+
+    @Test fun cleansDecorationsAndMergesDuplicates() {
+        val items = PlantPost.parseItems(post)
+        assertEquals(
+            listOf("Picea abies Hansu Antenna", "Picea mariana Edelweiss Weeping", "Picea pungens Dietz Prostrate",
+                "Pinus ponderosa Peňáz", "Pinus strobus Goldie"),
+            items.map { it.name },
+        )
+        assertEquals(2, items[0].count)
+        assertEquals(listOf("new"), items[0].notes)
+        assertNull(items[0].container)
+    }
+
+    @Test fun matchesByNameAndListsSizes() {
+        val items = PlantPost.parseItems(post).associateBy { it.name }
+        fun m(name: String) = PlantPost.matchOption(options, items.getValue(name))
+        assertEquals(OptionMatch.Found(6), m("Pinus strobus Goldie"))
+        assertEquals(OptionMatch.Found(4), m("Pinus ponderosa Peňáz"))  // диакритика
+        assertEquals(OptionMatch.Found(3), m("Picea pungens Dietz Prostrate"))
+        // Два размера — не угадываем, а показываем оба.
+        assertEquals(OptionMatch.Ambiguous(options.subList(0, 2)), m("Picea abies Hansu Antenna"))
+        assertEquals(options.subList(0, 2), PlantPost.variants(options, "Picea abies Hansu Antenna"))
+        // Похожее начало названия — не совпадение.
+        assertEquals(emptyList<String>(), PlantPost.variants(options, "Pinus ponderosa"))
+        // Выбранный размер (полная строка формы) сопоставляется строго.
+        assertEquals(OptionMatch.Found(1), PlantPost.matchManual(options, options[1]))
+    }
+}

@@ -12,8 +12,8 @@ android {
         applicationId = "com.formbot.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 3
+        versionName = "2.1"
         // TDLib — нативная библиотека; на Android 16 реальные телефоны — только arm64.
         ndk { abiFilters += "arm64-v8a" }
     }

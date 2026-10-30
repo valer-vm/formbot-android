@@ -219,7 +219,10 @@ class BotEngine(
      * Вопрос с растениями и вариант в нём. Строго: название + контейнер + размер.
      * Нет варианта — OptionMissing (ждём обновления формы), два подходящих — не угадываем.
      */
-    private fun pickPlant(f: ParsedForm, plant: String, answers: MutableMap<Question, Answer>): Question {
+    /** Размер, выбранный человеком для растения, — чтобы при повторной попытке не спрашивать снова. */
+    private val sizeChoice = mutableMapOf<String, String>()
+
+    private suspend fun pickPlant(f: ParsedForm, plant: String, answers: MutableMap<Question, Answer>): Question {
         val choices = f.questions.filter { it.kind == QKind.RADIO || it.kind == QKind.DROPDOWN }
         if (choices.isEmpty()) throw FatalError("В форме нет вопроса с выбором растения")
         for (q in choices) when (val m = PlantPost.matchManual(q.options, plant)) {
@@ -228,9 +231,22 @@ class BotEngine(
                 log("🌱 Выбрано: ${q.options[m.index]}")
                 return q
             }
-            is OptionMatch.Ambiguous -> throw FatalError(
-                "«$plant» подходит к нескольким вариантам: ${m.labels.joinToString("; ")}"
-            )
+            is OptionMatch.Ambiguous -> {
+                // В посте только название, а в форме несколько размеров — спрашиваем, какой.
+                val label = sizeChoice[plant]?.takeIf { it in m.labels } ?: run {
+                    log("📏 У «$plant» в форме несколько размеров — спрашиваю, какой нужен")
+                    onStatus("Выберите размер")
+                    val ask = Question(q.itemId, q.entryId, "Какой размер: $plant?", "", QKind.DROPDOWN,
+                        m.labels, hasOther = false, required = true, page = q.page)
+                    val a = askHuman(HumanRequest(ask, emptyList(), "Несколько размеров")) as? Answer.Choice
+                        ?: throw FatalError("Размер для «$plant» не выбран")
+                    onStatus("Заполняю")
+                    a.label.also { sizeChoice[plant] = it }
+                }
+                answers[q] = Answer.Choice(label)
+                log("🌱 Выбрано: $label")
+                return q
+            }
             OptionMatch.NotFound -> {}
         }
         val q = choices.firstOrNull { Regex("растен", RegexOption.IGNORE_CASE).containsMatchIn(it.title) }

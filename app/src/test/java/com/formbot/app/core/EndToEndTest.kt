@@ -65,4 +65,20 @@ class EndToEndTest {
         assertTrue("ник не подставлен", html.contains("FormBot-prefill"))
         assertTrue("растение не выбрано", html.contains("Pinus sylvestris Ødegård C2 20/25"))
     }
+
+    /** Новый формат поста: только название с эмодзи — размер берётся из формы. Ничего не отправляется. */
+    @Test fun nameOnlyPostFindsFormVariant() = runBlocking {
+        assumeTrue("нужен -Pe2eForm", formUrl.isNotBlank())
+        val item = PlantPost.parseItems("✅Pinus sylvestris Ødegård 🥇\n✅Pinus nigra Golden Sunrise 💥💥new💥💥").also { println(it) }
+        val s = Settings(formUrl = formUrl, nickname = "FormBot-nameonly", column = "0", useAi = false, manualSubmit = true)
+        val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build()
+        val links = mutableListOf<String>()
+        val engine = BotEngine(s, http, { println(it) }, {}, { req ->
+            if ("Столица" in req.question.title) Answer.Text("Москва") else Answer.Text("Бесконечность")
+        }, onPrepared = { _, url -> links += url })
+        assertEquals(2, engine.run(item.map { it.raw }))
+        engine.close()
+        assertTrue(links[0], links[0].contains("Pinus%20sylvestris%20%C3%98deg%C3%A5rd%20C2%2020%2F25"))
+        assertTrue(links[1], links[1].contains("Golden%20Sunrise"))
+    }
 }
